@@ -1,6 +1,6 @@
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import LandingPage from './pages/LandingPage';
-import CreateCV from './components/CreateCV';
+import CreateCV from './pages/CreateCV';
 
 const router = createBrowserRouter([
   {
@@ -8,7 +8,7 @@ const router = createBrowserRouter([
     element: <LandingPage />,
   },
   {
-    path: "/abc",
+    path: "/create-cv",
     element: <CreateCV />,
   },
 
