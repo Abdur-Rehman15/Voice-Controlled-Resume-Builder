@@ -6,6 +6,10 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import axios from 'axios';
 
+// Import routes
+import validateAnswerRoutes from './routes/validateAnswer.js';
+import generateResumeRoutes from './routes/generateResume.js';
+
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
@@ -18,6 +22,10 @@ const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/asaanc
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Routes
+app.use('/api/validate-answer', validateAnswerRoutes);
+app.use('/api/generate-resume', generateResumeRoutes);
 
 // Text-to-Speech endpoint using Google Cloud REST API
 app.post('/api/text-to-speech', async (req, res) => {
