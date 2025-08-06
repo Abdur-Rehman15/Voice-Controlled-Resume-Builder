@@ -7,27 +7,40 @@ const useTTS = () => {
 
   const speak = async (text) => {
     if (!text.trim()) return;
+    
+    console.log(`[useTTS] Starting TTS for text: "${text}"`);
     setSpeaking(true);
+    
     try {
       const response = await fetch(TTS_API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text })
       });
+      
       if (!response.ok) throw new Error('TTS failed');
+      
       const audioBlob = await response.blob();
       const audioUrl = URL.createObjectURL(audioBlob);
       const audio = new Audio(audioUrl);
+      
+      console.log(`[useTTS] Audio loaded, starting playback`);
+      
       audio.onended = () => {
+        console.log(`[useTTS] Audio playback ended`);
         setSpeaking(false);
         URL.revokeObjectURL(audioUrl);
       };
-      audio.onerror = () => {
+      
+      audio.onerror = (error) => {
+        console.error(`[useTTS] Audio playback error:`, error);
         setSpeaking(false);
         URL.revokeObjectURL(audioUrl);
       };
+      
       audio.play();
     } catch (e) {
+      console.error(`[useTTS] TTS error:`, e);
       setSpeaking(false);
       alert('TTS error');
     }
