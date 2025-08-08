@@ -164,6 +164,47 @@ Return only the JSON object, no additional text.`;
       console.error('[geminiClient] Gemini translation error:', error);
       return urduText;
     }
+  },
+
+  generateProfessionalSummary: async (answers) => {
+    console.log('[geminiClient] Generating professional summary from answers:', answers);
+    
+    try {
+      const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+      
+      const prompt = `Based on the following information about a person, generate a professional summary for their resume. The summary should be compelling, highlight their key strengths, and be suitable for job applications.
+
+Person's Information:
+- Name: ${answers[0] || 'Not provided'}
+- Profession: ${answers[1] || 'Not provided'}
+- Education: ${answers[2] || 'Not provided'}
+- Skills: ${answers[3] || 'Not provided'}
+- Experience: ${answers[4] || 'Not provided'}
+- Certifications: ${answers[5] || 'Not provided'}
+
+Please generate a professional summary that:
+1. Is 2-3 sentences long
+2. Highlights their profession and key skills
+3. Mentions relevant experience if available
+4. Is written in professional English
+5. Focuses on their strengths and value proposition
+
+Return only the professional summary text, no additional formatting or explanations.`;
+
+      console.log('[geminiClient] Sending professional summary request to Gemini AI');
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      const text = response.text().trim();
+      
+      console.log('[geminiClient] Professional summary generated:', text);
+      return text;
+    } catch (error) {
+      console.error('[geminiClient] Professional summary generation error:', error);
+      // Fallback summary
+      const fallbackSummary = `${answers[1] || 'Professional'} with experience in ${answers[3] || 'various skills'}. ${answers[4] ? 'Has relevant work experience.' : 'Ready to contribute to organizational success.'}`;
+      console.log('[geminiClient] Using fallback professional summary:', fallbackSummary);
+      return fallbackSummary;
+    }
   }
 };
 

@@ -2,6 +2,19 @@ import PDFDocument from 'pdfkit';
 import geminiClient from './geminiClient.js';
 
 const pdfGenerator = async (answers) => {
+  console.log('[pdfGenerator] Starting PDF generation with answers:', answers);
+  
+  // Generate professional summary using Gemini AI
+  let professionalSummary;
+  try {
+    console.log('[pdfGenerator] Generating professional summary...');
+    professionalSummary = await geminiClient.generateProfessionalSummary(answers);
+    console.log('[pdfGenerator] Professional summary generated:', professionalSummary);
+  } catch (error) {
+    console.error('[pdfGenerator] Error generating professional summary:', error);
+    professionalSummary = `${answers[1] || 'Professional'} with experience in ${answers[3] || 'various skills'}. ${answers[4] ? 'Has relevant work experience.' : 'Ready to contribute to organizational success.'}`;
+  }
+
   // Translate all answers to English using Gemini
   const translatedAnswers = [];
   for (let i = 0; i < answers.length; i++) {
@@ -9,6 +22,7 @@ const pdfGenerator = async (answers) => {
       try {
         const english = await geminiClient.translateToEnglish(answers[i]);
         translatedAnswers[i] = english;
+        console.log('english: ', english, '\n');
       } catch (e) {
         translatedAnswers[i] = answers[i];
       }
@@ -35,14 +49,17 @@ const pdfGenerator = async (answers) => {
     // Header
     doc.fontSize(16)
        .font('Helvetica-Bold')
-       .text('RESUME', { align: 'center' })
+       .text(`${translatedAnswers[0] || 'Name'}`, { align: 'center' })
+       doc.moveDown(0.2)
        .font('Helvetica')
-       .text(`${translatedAnswers[0] || 'Name'} | ${translatedAnswers[1] || 'Profession'}`)
-       doc.fontSize(11)
+       doc.fontSize(12)
+       .text(`[${translatedAnswers[1] || 'Profession'}]`, { align: 'center' })
+       doc.moveDown(0.2)
        .font('Helvetica')
-       .text(`Address: ${translatedAnswers[6] || 'Address'}`)
+       .text(`${translatedAnswers[6] || 'Address'}`, { align: 'center' })
+       doc.moveDown(0.2)
        .font('Helvetica')
-       .text(`Phone: ${translatedAnswers[7] || 'Phone'}`);
+       .text(`${answers[7] || 'Phone'}`, { align: 'center' });
     doc.moveDown(2);
 
     // Professional Summary
@@ -52,7 +69,7 @@ const pdfGenerator = async (answers) => {
     doc.moveDown(0.5);
     doc.fontSize(11)
        .font('Helvetica')
-       .text(`${translatedAnswers[1] || 'Profession'} with experience in the field.`);
+       .text(professionalSummary);
     doc.moveDown(1);
 
     // Education

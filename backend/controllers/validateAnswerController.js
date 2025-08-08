@@ -24,7 +24,24 @@ export const validateAnswer = async (req, res) => {
       console.log(`[validateAnswerController] Prompt file not found: ${promptPath}`);
       console.log(`[validateAnswerController] Using default validation`);
       // If file doesn't exist, use default validation
-      const validationResult = await geminiClient.validateAnswer('', answer);
+      let validationResult;
+      try {
+        validationResult = await geminiClient.validateAnswer('', answer);
+      } catch (e) {
+        console.error('[validateAnswerController] Gemini validation failed:', e);
+        // Fallback for contact/phone number
+        if (questionType === 'contact') {
+          const phoneRegex = /\d{4,}/g;
+          const match = answer.match(phoneRegex);
+          if (match) {
+            validationResult = { valid: true, message: 'فون نمبر درست ہے', extractedInfo: match[0] };
+          } else {
+            validationResult = { valid: false, message: 'فون نمبر درست نہیں ہے', extractedInfo: '' };
+          }
+        } else {
+          validationResult = { valid: false, message: 'جواب کی تصدیق میں مسئلہ ہوا ہے', extractedInfo: '' };
+        }
+      }
       console.log(`[validateAnswerController] Default validation result:`, validationResult);
       return res.json(validationResult);
     }

@@ -4,7 +4,7 @@ import questions from '../utils/questions';
 export const ResumeContext = createContext();
 
 export const ResumeProvider = ({ children }) => {
-  const [answers, setAnswers] = useState([]);
+  const [answers, setAnswers] = useState(Array(questions.length).fill(''));
   const [currentStep, setCurrentStep] = useState(0);
 
   const setAnswer = (step, answer) => {

@@ -28,10 +28,20 @@ const QuestionFlow = () => {
     setShowConfirm(true);
   };
 
-  const generateResume = async () => {
-    console.log('[QuestionFlow] Starting resume generation');
-    console.log('[QuestionFlow] Final answers:', answers);
+  const generateResume = async (finalAnswers) => {
+    console.log('[Resume Generation] Using answers:', finalAnswers);
     
+    // Verify all answers are present
+    if (finalAnswers.length !== questions.length || finalAnswers.some(a => !a)) {
+      console.error('Missing answers:', {
+        expected: questions.length,
+        received: finalAnswers.length,
+        answers: finalAnswers
+      });
+      alert('براہ کرم تمام سوالات کے جوابات دیں');
+      return;
+    }
+
     setGeneratingResume(true);
     try {
       const response = await fetch('http://localhost:5000/api/generate-resume', {
@@ -39,19 +49,16 @@ const QuestionFlow = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ answers })
+        body: JSON.stringify({ answers: finalAnswers }) // Use finalAnswers here
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to generate resume');
-      }
+      if (!response.ok) throw new Error('Failed to generate resume');
 
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       setResumeUrl(url);
-      console.log('[QuestionFlow] Resume generated successfully');
     } catch (error) {
-      console.error('[QuestionFlow] Resume generation error:', error);
+      console.error('Resume generation error:', error);
       alert('ریزیوم بنانے میں مسئلہ ہوا ہے');
     } finally {
       setGeneratingResume(false);
@@ -60,28 +67,32 @@ const QuestionFlow = () => {
 
   const handleConfirm = (confirmed) => {
     if (confirmed) {
-      // Use the extracted information instead of raw input
       const finalAnswer = extractedInfo || pendingAnswer;
-      console.log(`[QuestionFlow] User confirmed answer for step ${currentStep}: "${finalAnswer}"`);
+      const updatedAnswers = [...answers];
+      updatedAnswers[currentStep] = finalAnswer;
       
+      // Update context first
       setAnswer(currentStep, finalAnswer);
-      setShowConfirm(false);
-      setPendingAnswer('');
-      setExtractedInfo('');
       
       if (currentStep < questions.length - 1) {
-        console.log(`[QuestionFlow] Moving to next step: ${currentStep + 1}`);
         setCurrentStep(currentStep + 1);
       } else {
-        // All questions completed - generate resume
-        console.log('[QuestionFlow] All questions completed, generating resume');
-        generateResume();
+        // Ensure we're using the fully updated answers
+        const finalAnswers = [...updatedAnswers];
+        console.log('Final answers before generation:', finalAnswers);
+        generateResume(finalAnswers);
       }
-    } else {
-      console.log(`[QuestionFlow] User rejected answer for step ${currentStep}`);
+      
       setShowConfirm(false);
       setPendingAnswer('');
       setExtractedInfo('');
+    } else {
+      // Handle "Nahi" case
+      console.log('[QuestionFlow] User rejected answer, resetting for retry');
+      setShowConfirm(false);
+      setPendingAnswer('');
+      setExtractedInfo('');
+      // No need to change step - will retry same question
     }
   };
 
@@ -90,6 +101,10 @@ const QuestionFlow = () => {
     resetAnswers();
     setIsStarted(false);
     setResumeUrl(null);
+    setShowConfirm(false);
+    setPendingAnswer('');
+    setExtractedInfo('');
+    setCurrentStep(0);
   };
 
   // Log when current step changes
@@ -97,6 +112,12 @@ const QuestionFlow = () => {
     console.log(`[QuestionFlow] Current step changed to: ${currentStep}`);
     console.log(`[QuestionFlow] Current question: "${questions[currentStep]}"`);
   }, [currentStep]);
+
+  // Log when answers array changes
+  useEffect(() => {
+    console.log(`[QuestionFlow] Answers array updated:`, answers);
+    console.log(`[QuestionFlow] Answers array length: ${answers.length}`);
+  }, [answers]);
 
   if (!isStarted) {
     return (
