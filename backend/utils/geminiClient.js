@@ -205,6 +205,99 @@ Return only the professional summary text, no additional formatting or explanati
       console.log('[geminiClient] Using fallback professional summary:', fallbackSummary);
       return fallbackSummary;
     }
+  },
+
+  generateAdditionalSkills: async (profession, existingSkills) => {
+    console.log('[geminiClient] Generating additional skills for profession:', profession, 'with existing skills:', existingSkills);
+    
+    try {
+      const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+      
+      const prompt = `Based on the profession "${profession}" and existing skills "${existingSkills}", generate 4-5 additional relevant professional skills that would be valuable for this profession.
+
+Requirements:
+1. Generate skills that complement the existing skills
+2. Make them relevant to the profession
+3. Format each skill on a new line with a dash prefix like this:
+-Skill 1
+-Skill 2
+-Skill 3
+-Skill 4
+-Skill 5
+
+4. Keep skills simple, concise, and brief (4-6 words maximum)
+5. Use simple, everyday language
+6. Don't repeat existing skills
+7. Focus on essential technical or soft skills
+
+Examples of good simple skills:
+- Problem Solving
+- Team Work
+- Time Management
+- Communication
+- Data Analysis
+
+Return only the formatted skills list, no additional text or explanations.`;
+
+      console.log('[geminiClient] Sending additional skills request to Gemini AI');
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      const text = response.text().trim();
+      
+      console.log('[geminiClient] Additional skills generated:', text);
+      return text;
+    } catch (error) {
+      console.error('[geminiClient] Additional skills generation error:', error);
+      // Fallback skills based on profession
+      const fallbackSkills = `-Problem Solving\n-Team Collaboration\n-Communication\n-Time Management\n-Adaptability`;
+      console.log('[geminiClient] Using fallback additional skills:', fallbackSkills);
+      return fallbackSkills;
+    }
+  },
+
+  generateExperienceLearnings: async (experience, profession) => {
+    console.log('[geminiClient] Generating experience learnings for:', experience, 'profession:', profession);
+    
+    try {
+      const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+      
+      const prompt = `Based on the work experience "${experience}" for someone in the profession "${profession}", generate 2-3 relevant learning points that this job would have taught them.
+
+Requirements:
+1. Generate 2-3 simple learning outcomes
+2. Make them specific to the experience and profession
+3. Format each learning point on a new line with a bullet point like this:
+• Learning point 1
+• Learning point 2
+• Learning point 3
+
+4. Keep points simple, brief, and easy to understand
+5. Use simple, everyday language
+6. Focus on practical skills gained
+7. Keep each point under 10 words
+
+Examples of good simple learning points:
+• Learned to work in teams
+• Improved communication skills
+• Gained problem-solving experience
+• Developed time management skills
+
+Return only the formatted learning points, no additional text or explanations.`;
+
+      console.log('[geminiClient] Sending experience learnings request to Gemini AI');
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      const text = response.text().trim();
+      
+      console.log('[geminiClient] Experience learnings generated:', text);
+      return text;
+    } catch (error) {
+      console.error('[geminiClient] Experience learnings generation error:', error);
+      // Fallback learnings
+      const fallbackLearnings = `• Enhanced professional skills and expertise\n• Improved problem-solving and analytical abilities\n• Developed strong work ethic and responsibility`;
+      console.log('[geminiClient] Using fallback experience learnings:', fallbackLearnings);
+      return fallbackLearnings;
+    }
   }
 };
 

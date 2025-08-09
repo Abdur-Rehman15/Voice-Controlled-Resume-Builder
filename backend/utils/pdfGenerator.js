@@ -31,6 +31,30 @@ const pdfGenerator = async (answers) => {
     }
   }
 
+  // Generate additional skills using Gemini AI
+  let additionalSkills = '';
+  if (translatedAnswers[1] && translatedAnswers[3]) {
+    try {
+      console.log('[pdfGenerator] Generating additional skills...');
+      additionalSkills = await geminiClient.generateAdditionalSkills(translatedAnswers[1], translatedAnswers[3]);
+      console.log('[pdfGenerator] Additional skills generated:', additionalSkills);
+    } catch (error) {
+      console.error('[pdfGenerator] Error generating additional skills:', error);
+    }
+  }
+
+  // Generate experience learning points using Gemini AI
+  let experienceLearnings = '';
+  if (translatedAnswers[4] && translatedAnswers[1]) {
+    try {
+      console.log('[pdfGenerator] Generating experience learnings...');
+      experienceLearnings = await geminiClient.generateExperienceLearnings(translatedAnswers[4], translatedAnswers[1]);
+      console.log('[pdfGenerator] Experience learnings generated:', experienceLearnings);
+    } catch (error) {
+      console.error('[pdfGenerator] Error generating experience learnings:', error);
+    }
+  }
+
   return new Promise((resolve) => {
     const doc = new PDFDocument({
       size: 'A4',
@@ -65,50 +89,130 @@ const pdfGenerator = async (answers) => {
     // Professional Summary
     doc.fontSize(14)
        .font('Helvetica-Bold')
+       .fillColor('blue')
        .text('PROFESSIONAL SUMMARY');
-    doc.moveDown(0.5);
+    
+    // Add underline extending to right edge
+    const summaryY = doc.y;
+    doc.moveTo(50, summaryY + 2)
+       .lineTo(doc.page.width - 50, summaryY + 2)
+       .stroke();
+    doc.moveDown(0.4);
     doc.fontSize(11)
        .font('Helvetica')
+       .fillColor('black')
        .text(professionalSummary);
     doc.moveDown(1);
 
     // Education
     doc.fontSize(14)
        .font('Helvetica-Bold')
+       .fillColor('blue')
        .text('EDUCATION');
-    doc.moveDown(0.5);
+    
+    // Add underline extending to right edge
+    const educationY = doc.y;
+    doc.moveTo(50, educationY + 2)
+       .lineTo(doc.page.width - 50, educationY + 2)
+       .stroke();
+    doc.moveDown(0.4);
     doc.fontSize(11)
        .font('Helvetica')
+       .fillColor('black')
        .text(translatedAnswers[2] || 'Education');
     doc.moveDown(1);
 
     // Skills
     doc.fontSize(14)
        .font('Helvetica-Bold')
+       .fillColor('blue')
        .text('SKILLS');
-    doc.moveDown(0.5);
+    
+    // Add underline extending to right edge
+    const skillsY = doc.y;
+    doc.moveTo(50, skillsY + 2)
+       .lineTo(doc.page.width - 50, skillsY + 2)
+       .stroke();
+    doc.moveDown(0.4);
+    
     doc.fontSize(11)
        .font('Helvetica')
-       .text(translatedAnswers[3] || 'Skills');
+       .fillColor('black');
+    
+    // Display original skills as bullet points
+    if (translatedAnswers[3]) {
+      const inputSkills = translatedAnswers[3].split(',').map(skill => skill.trim()).filter(skill => skill);
+      inputSkills.forEach(skill => {
+        // Capitalize first letter and remove 'and' from the end
+        let cleanSkill = skill.replace(/\s+and\s*$/i, ''); // Remove 'and' from the end
+        cleanSkill = cleanSkill.charAt(0).toUpperCase() + cleanSkill.slice(1).toLowerCase(); // Capitalize first letter
+        doc.text(`• ${cleanSkill}`);
+      });
+    }
+    
+    // Display additional AI-generated skills with bullet points
+    if (additionalSkills) {
+      const skillLines = additionalSkills.split('\n').filter(line => line.trim());
+      skillLines.forEach(skill => {
+        const cleanSkill = skill.replace(/^-\s*/, ''); // Remove the dash prefix
+        doc.text(`• ${cleanSkill}`);
+      });
+    }
     doc.moveDown(1);
 
     // Experience
     doc.fontSize(14)
        .font('Helvetica-Bold')
+       .fillColor('blue')
        .text('EXPERIENCE');
-    doc.moveDown(0.5);
+    
+    // Add underline extending to right edge
+    const experienceY = doc.y;
+    doc.moveTo(50, experienceY + 2)
+       .lineTo(doc.page.width - 50, experienceY + 2)
+       .stroke();
+    doc.moveDown(0.4);
     doc.fontSize(11)
        .font('Helvetica')
-       .text(translatedAnswers[4] || 'Experience');
+       .fillColor('black');
+    
+    // Display original experience
+    if (translatedAnswers[4]) {
+      doc.text(translatedAnswers[4]);
+      doc.moveDown(0.3);
+    }
+    else{ //fallback
+      doc.fontSize(11)
+      .font('Helvetica')
+      .text('No experience');
+      doc.moveDown(0.3);
+    }
+    
+    // Display AI-generated learning points
+    if (experienceLearnings) {
+      const learningLines = experienceLearnings.split('\n').filter(line => line.trim());
+      learningLines.forEach(learning => {
+        const cleanLearning = learning.replace(/^•\s*/, ''); // Remove the bullet prefix
+        doc.text(`• ${cleanLearning}`);
+      });
+    }
     doc.moveDown(1);
 
     // Certifications
     doc.fontSize(14)
        .font('Helvetica-Bold')
+       .fillColor('blue')
        .text('CERTIFICATIONS');
-    doc.moveDown(0.5);
+    
+    // Add underline extending to right edge
+    const certificationsY = doc.y;
+    doc.moveTo(50, certificationsY + 2)
+       .lineTo(doc.page.width - 50, certificationsY + 2)
+       .stroke();
+    doc.moveDown(0.4);
     doc.fontSize(11)
        .font('Helvetica')
+       .fillColor('black')
        .text(translatedAnswers[5] || 'No certifications');
     doc.moveDown(1);
 

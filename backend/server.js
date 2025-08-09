@@ -9,6 +9,8 @@ import axios from 'axios';
 // Import routes
 import validateAnswerRoutes from './routes/validateAnswer.js';
 import generateResumeRoutes from './routes/generateResume.js';
+import resumeRoutes from './routes/resumes.js';
+import sessionRoutes from './routes/session.js';
 
 dotenv.config();
 
@@ -26,6 +28,8 @@ app.use(express.urlencoded({ extended: true }));
 // Routes
 app.use('/api/validate-answer', validateAnswerRoutes);
 app.use('/api/generate-resume', generateResumeRoutes);
+app.use('/api/resumes', resumeRoutes);
+app.use('/api/session', sessionRoutes);
 
 // Text-to-Speech endpoint using Google Cloud REST API
 app.post('/api/text-to-speech', async (req, res) => {
