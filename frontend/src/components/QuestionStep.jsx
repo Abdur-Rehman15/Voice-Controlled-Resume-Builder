@@ -134,8 +134,10 @@ const QuestionStep = ({ question, onAnswer, showConfirm, pendingAnswer, extracte
   const [error, setError] = useState('');
   const [textInput, setTextInput] = useState('');
   const [showTextInput, setShowTextInput] = useState(false);
+  const [confirmationPlayed, setConfirmationPlayed] = useState(false);
+  const [errorPlayed, setErrorPlayed] = useState(false);
 
-  const { startListening, listening, stopListening } = useSpeech({
+  const { startListening, listening, stopListening, resetTranscript } = useSpeech({
     onResult: async (result) => {
       console.log(`[QuestionStep] Speech recognition result: "${result}"`);
       setInput(result);
@@ -176,6 +178,7 @@ const QuestionStep = ({ question, onAnswer, showConfirm, pendingAnswer, extracte
           setTimeout(() => onAnswer(result, extracted), 300);
         } else {
           setError(validationResult.message || 'جواب درست نہیں ہے، دوبارہ کوشش کریں');
+          // Don't call onAnswer for errors - just show error popup
         }
       } catch (e) {
         console.error('[QuestionStep] Validation error:', e);
@@ -190,6 +193,41 @@ const QuestionStep = ({ question, onAnswer, showConfirm, pendingAnswer, extracte
 
   const { speak, speaking } = useTTS();
 
+  // Define displayExtractedInfo early to avoid initialization issues
+  const displayExtractedInfo = extractedInfo || localExtractedInfo;
+
+  // Generate custom confirmation message based on question type
+  const generateConfirmationMessage = (questionType, extractedInfo) => {
+    const baseMessage = 'اگر ہاں، تو ہاں کا بٹن دبائیں۔ ورنہ نہیں کا بٹن دبا کر پھر کوشش کریں';
+    
+    switch (questionType) {
+      case 'name':
+        return `براہ کرم تصدیق کریں، کیا آپ کا نام ${extractedInfo} ہے؟ ${baseMessage}`;
+      case 'profession':
+        return `براہ کرم تصدیق کریں، کیا آپ کا پیشہ ${extractedInfo} ہے؟ ${baseMessage}`;
+      case 'education':
+        return `براہ کرم تصدیق کریں، کیا آپ کی تعلیم ${extractedInfo} ہے؟ ${baseMessage}`;
+      case 'skills':
+        return `براہ کرم تصدیق کریں، کیا آپ کی مہارتیں ${extractedInfo} ہیں؟ ${baseMessage}`;
+      case 'experience':
+        return `براہ کرم تصدیق کریں، کیا آپ کا تجربہ ${extractedInfo} ہے؟ ${baseMessage}`;
+      case 'certifications':
+        return `براہ کرم تصدیق کریں، کیا آپ کی سرٹیفیکیشنز ${extractedInfo} ہیں؟ ${baseMessage}`;
+      case 'address':
+        return `براہ کرم تصدیق کریں، کیا آپ کا پتہ ${extractedInfo} ہے؟ ${baseMessage}`;
+      case 'contact':
+        return `براہ کرم تصدیق کریں، کیا آپ کا فون نمبر ${extractedInfo} ہے؟ ${baseMessage}`;
+      default:
+        return `براہ کرم تصدیق کریں، کیا آپ کا جواب ${extractedInfo} ہے؟ ${baseMessage}`;
+    }
+  };
+
+  // Generate custom error message with button instruction
+  const generateErrorMessage = (errorText, userAnswer) => {
+    const baseInstruction = 'دوبارہ کوشش کرنے کے لیے دوبارہ کوشش کریں والا بٹن دبائیں';
+    return `${errorText} آپ کا جواب: ${userAnswer}۔ ${baseInstruction}`;
+  };
+
   // Play question once when step changes - FIXED to avoid infinite loop
   useEffect(() => {
     if (!isStarted) return;
@@ -200,6 +238,11 @@ const QuestionStep = ({ question, onAnswer, showConfirm, pendingAnswer, extracte
     setLocalExtractedInfo('');
     setError('');
     setTextInput('');
+    setConfirmationPlayed(false);
+    setErrorPlayed(false);
+    
+    // Reset the transcript for the new question
+    resetTranscript();
 
     const isLastQuestion = currentStep === 7;
     setShowTextInput(isLastQuestion);
@@ -215,20 +258,99 @@ const QuestionStep = ({ question, onAnswer, showConfirm, pendingAnswer, extracte
     };
   }, [currentStep, isStarted, question]); // Removed 'speak' to prevent infinite loop
 
-  // Enable mic after TTS done and not validating
+  // Enable mic and auto-start listening after TTS done and not validating
   useEffect(() => {
-    if (questionPlayed && !speaking && !listening && !showConfirm && !validating) {
+    if (questionPlayed && !speaking && !listening && !showConfirm && !validating && !error) {
       setMicEnabled(true);
+      // Auto-start listening after a short delay
+      const autoStartTimer = setTimeout(() => {
+        console.log('[QuestionStep] Auto-starting listening after question finished');
+        startListening();
+      }, 500); // 500ms delay to ensure TTS is completely finished
+      
+      return () => clearTimeout(autoStartTimer);
     } else {
       setMicEnabled(false);
     }
-  }, [questionPlayed, speaking, listening, showConfirm, validating]);
+  }, [questionPlayed, speaking, listening, showConfirm, validating, error, startListening]);
+
+  // Play confirmation message when confirmation popup is shown (only once)
+  useEffect(() => {
+    console.log('[QuestionStep] Confirmation useEffect triggered:', {
+      showConfirm,
+      validating,
+      error,
+      confirmationPlayed,
+      currentStep,
+      displayExtractedInfo,
+      pendingAnswer
+    });
+
+    if (showConfirm && !validating && !error && !confirmationPlayed) {
+      console.log('[QuestionStep] Conditions met, preparing to play confirmation');
+      
+      const questionTypes = ['name', 'profession', 'education', 'skills', 'experience', 'certifications', 'address', 'contact'];
+      const questionType = questionTypes[currentStep] || 'name';
+      const extractedInfo = displayExtractedInfo || pendingAnswer;
+      
+      console.log('[QuestionStep] Extracted info:', extractedInfo);
+      
+              if (extractedInfo) {
+          const confirmationMessage = generateConfirmationMessage(questionType, extractedInfo);
+          console.log('[QuestionStep] Playing confirmation message:', confirmationMessage);
+          
+          // Mark as played to prevent repetition
+          setConfirmationPlayed(true);
+          
+          // Call speak directly without timeout
+          console.log('[QuestionStep] Actually calling speak() now');
+          speak(confirmationMessage);
+        } else {
+        console.log('[QuestionStep] No extracted info available');
+      }
+    } else {
+      console.log('[QuestionStep] Conditions not met for playing confirmation');
+    }
+  }, [showConfirm, validating, error, currentStep, displayExtractedInfo, pendingAnswer, speak]);
+
+  // Play error message when error popup is shown (only once)
+  useEffect(() => {
+    console.log('[QuestionStep] Error useEffect triggered:', {
+      error,
+      validating,
+      showConfirm,
+      errorPlayed,
+      pendingAnswer
+    });
+
+    if (error && !validating && !showConfirm && !errorPlayed) {
+      console.log('[QuestionStep] Conditions met, preparing to play error message');
+      
+      const errorMessage = generateErrorMessage(error, pendingAnswer);
+      console.log('[QuestionStep] Playing error message:', errorMessage);
+      
+      // Mark as played to prevent repetition
+      setErrorPlayed(true);
+      
+      // Call speak directly
+      console.log('[QuestionStep] Actually calling speak() for error now');
+      speak(errorMessage);
+    } else if (error) {
+      console.log('[QuestionStep] Conditions not met for playing error message');
+    }
+  }, [error, validating, showConfirm, errorPlayed, pendingAnswer, speak]);
 
   const handleMicClick = () => {
     if (!micEnabled || listening) return;
     console.log('[QuestionStep] Manual mic button clicked, starting listening');
     setError('');
     startListening();
+  };
+
+  // Test TTS function
+  const testTTS = () => {
+    console.log('[QuestionStep] Testing TTS...');
+    speak('ٹیسٹ میسج');
   };
 
   const handleTextInputSubmit = async (e) => {
@@ -270,8 +392,6 @@ const QuestionStep = ({ question, onAnswer, showConfirm, pendingAnswer, extracte
     }
   };
 
-  const displayExtractedInfo = extractedInfo || localExtractedInfo;
-
   return (
     <>
       {/* Enhanced Question Container */}
@@ -299,20 +419,7 @@ const QuestionStep = ({ question, onAnswer, showConfirm, pendingAnswer, extracte
             </div>
           )}
 
-          {/* Error Display */}
-          {error && (
-            <div className="error-container">
-              <div className="error-icon">⚠️</div>
-              <div className="error-content">
-                <div className="error-message">{error}</div>
-                {!showTextInput && (
-                  <button onClick={() => { setError(''); startListening(); }} className="retry-button">
-                    🔄 دوبارہ کوشش کریں
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
+
 
           {/* Ready to Speak Status */}
           {!speaking && !validating && micEnabled && !showTextInput && (
@@ -322,6 +429,9 @@ const QuestionStep = ({ question, onAnswer, showConfirm, pendingAnswer, extracte
               <button onClick={() => { setQuestionPlayed(false); setTimeout(() => { speak(question); setQuestionPlayed(true); }, 250); }}
                 className="replay-button">
                 🔁 سوال دوبارہ سنیں
+              </button>
+              <button onClick={testTTS} className="test-button">
+                🧪 ٹیسٹ TTS
               </button>
             </div>
           )}
@@ -603,23 +713,56 @@ const QuestionStep = ({ question, onAnswer, showConfirm, pendingAnswer, extracte
       </EnhancedPopup>
 
       {/* Enhanced Confirmation Popup */}
-      <EnhancedPopup show={showConfirm && !validating}>
+      <EnhancedPopup show={(showConfirm || error) && !validating}>
         <div className="confirmation-popup">
           <div className="confirmation-header">
-            <h3>کیا آپ کا جواب یہ ہے؟</h3>
+            <h3>{error ? 'غلطی' : 'تصدیق'}</h3>
           </div>
-          <div className="answer-display">
-            <div className="extracted-answer">
-              {displayExtractedInfo || pendingAnswer}
+          {error ? (
+            <div className="error-display">
+              <div className="error-icon">⚠️</div>
+              <div className="error-message">
+                {generateErrorMessage(error, pendingAnswer)}
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="answer-display">
+              <div className="confirmation-message">
+                {(() => {
+                  const questionTypes = ['name', 'profession', 'education', 'skills', 'experience', 'certifications', 'address', 'contact'];
+                  const questionType = questionTypes[currentStep] || 'name';
+                  const extractedInfo = displayExtractedInfo || pendingAnswer;
+                  return generateConfirmationMessage(questionType, extractedInfo);
+                })()}
+              </div>
+              <div className="extracted-answer">
+                <strong>آپ کا جواب:</strong> {displayExtractedInfo || pendingAnswer}
+              </div>
+            </div>
+          )}
           <div className="confirmation-buttons">
-            <button onClick={() => onConfirm(true)} className="confirm-yes">
-              ✅ ہاں
-            </button>
-            <button onClick={() => { onConfirm(false); setInput(''); setLocalExtractedInfo(''); setError(''); if (listening) stopListening(); }} className="confirm-no">
-              ❌ نہیں
-            </button>
+            {error ? (
+              <button onClick={() => { 
+                setError(''); 
+                setInput(''); 
+                setLocalExtractedInfo(''); 
+                setConfirmationPlayed(false);
+                setErrorPlayed(false);
+                resetTranscript();
+                if (listening) stopListening(); 
+              }} className="retry-button">
+                🔄 دوبارہ کوشش کریں
+              </button>
+            ) : (
+              <>
+                <button onClick={() => onConfirm(true)} className="confirm-yes">
+                  ✅ ہاں
+                </button>
+                <button onClick={() => { onConfirm(false); setInput(''); setLocalExtractedInfo(''); setError(''); setConfirmationPlayed(false); resetTranscript(); if (listening) stopListening(); }} className="confirm-no">
+                  ❌ نہیں
+                </button>
+              </>
+            )}
           </div>
           <style jsx>{`
             .confirmation-popup {
@@ -639,14 +782,57 @@ const QuestionStep = ({ question, onAnswer, showConfirm, pendingAnswer, extracte
               border-radius: 15px;
               color: white;
             }
+            .confirmation-message {
+              font-size: 16px;
+              font-weight: bold;
+              margin-bottom: 15px;
+              line-height: 1.4;
+              text-align: center;
+            }
             .extracted-answer {
-              font-size: 20px;
+              font-size: 18px;
               font-weight: bold;
               margin-bottom: 10px;
+              text-align: center;
+              padding-top: 15px;
+              border-top: 1px solid rgba(255, 255, 255, 0.3);
             }
             .original-answer {
               font-size: 14px;
               opacity: 0.8;
+            }
+            .error-display {
+              margin-bottom: 30px;
+              padding: 20px;
+              background: linear-gradient(135deg, #f44336 0%, #e57373 100%);
+              border-radius: 15px;
+              color: white;
+              text-align: center;
+            }
+            .error-icon {
+              font-size: 32px;
+              margin-bottom: 15px;
+            }
+            .error-message {
+              font-size: 18px;
+              font-weight: bold;
+              margin-bottom: 15px;
+            }
+            .retry-button {
+              padding: 15px 30px;
+              background: linear-gradient(45deg, #ff9800, #ffb74d);
+              color: white;
+              border: none;
+              border-radius: 10px;
+              cursor: pointer;
+              font-size: 18px;
+              font-weight: bold;
+              transition: all 0.3s ease;
+              box-shadow: 0 5px 15px rgba(255, 152, 0, 0.3);
+            }
+            .retry-button:hover {
+              transform: translateY(-3px);
+              box-shadow: 0 8px 25px rgba(255, 152, 0, 0.4);
             }
             .confirmation-buttons {
               display: flex;

@@ -104,41 +104,24 @@ const pdfGenerator = async (answers) => {
        .text(professionalSummary);
     doc.moveDown(1);
 
-    // Education
-    doc.fontSize(14)
-       .font('Helvetica-Bold')
-       .fillColor('blue')
-       .text('EDUCATION');
     
-    // Add underline extending to right edge
-    const educationY = doc.y;
-    doc.moveTo(50, educationY + 2)
-       .lineTo(doc.page.width - 50, educationY + 2)
-       .stroke();
-    doc.moveDown(0.4);
-    doc.fontSize(11)
-       .font('Helvetica')
-       .fillColor('black')
-       .text(translatedAnswers[2] || 'Education');
-    doc.moveDown(1);
-
     // Skills
     doc.fontSize(14)
-       .font('Helvetica-Bold')
-       .fillColor('blue')
-       .text('SKILLS');
+    .font('Helvetica-Bold')
+    .fillColor('blue')
+    .text('SKILLS');
     
     // Add underline extending to right edge
     const skillsY = doc.y;
     doc.moveTo(50, skillsY + 2)
        .lineTo(doc.page.width - 50, skillsY + 2)
        .stroke();
-    doc.moveDown(0.4);
+       doc.moveDown(0.4);
     
-    doc.fontSize(11)
+       doc.fontSize(11)
        .font('Helvetica')
        .fillColor('black');
-    
+       
     // Display original skills as bullet points
     if (translatedAnswers[3]) {
       const inputSkills = translatedAnswers[3].split(',').map(skill => skill.trim()).filter(skill => skill);
@@ -162,19 +145,19 @@ const pdfGenerator = async (answers) => {
 
     // Experience
     doc.fontSize(14)
-       .font('Helvetica-Bold')
-       .fillColor('blue')
-       .text('EXPERIENCE');
+    .font('Helvetica-Bold')
+    .fillColor('blue')
+    .text('EXPERIENCE');
     
     // Add underline extending to right edge
     const experienceY = doc.y;
     doc.moveTo(50, experienceY + 2)
-       .lineTo(doc.page.width - 50, experienceY + 2)
-       .stroke();
+    .lineTo(doc.page.width - 50, experienceY + 2)
+    .stroke();
     doc.moveDown(0.4);
     doc.fontSize(11)
-       .font('Helvetica')
-       .fillColor('black');
+    .font('Helvetica-Bold')
+    .fillColor('black');
     
     // Display original experience
     if (translatedAnswers[4]) {
@@ -193,9 +176,28 @@ const pdfGenerator = async (answers) => {
       const learningLines = experienceLearnings.split('\n').filter(line => line.trim());
       learningLines.forEach(learning => {
         const cleanLearning = learning.replace(/^•\s*/, ''); // Remove the bullet prefix
-        doc.text(`• ${cleanLearning}`);
+        doc.font('Helvetica')
+           .text(`• ${cleanLearning}`);
       });
     }
+    doc.moveDown(1);
+
+    // Education
+    doc.fontSize(14)
+       .font('Helvetica-Bold')
+       .fillColor('blue')
+       .text('EDUCATION');
+    
+    // Add underline extending to right edge
+    const educationY = doc.y;
+    doc.moveTo(50, educationY + 2)
+       .lineTo(doc.page.width - 50, educationY + 2)
+       .stroke();
+    doc.moveDown(0.4);
+    doc.fontSize(11)
+       .font('Helvetica')
+       .fillColor('black')
+       .text(translatedAnswers[2] || 'Education');
     doc.moveDown(1);
 
     // Certifications
