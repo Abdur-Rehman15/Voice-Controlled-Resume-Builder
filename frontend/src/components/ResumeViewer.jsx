@@ -4,90 +4,105 @@ import './ResumeViewer.css';
 
 const ResumeViewer = () => {
   const navigate = useNavigate();
-  const [sessionId, setSessionId] = useState(localStorage.getItem('sessionId') || '');
+  const [sessionId, setSessionId] = useState('');
   const [resumes, setResumes] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [stats, setStats] = useState(null);
 
   const API_BASE_URL = 'http://localhost:5000/api';
 
-  // Initialize session on component mount
+  // Simple session management - try existing session first, then create new
   useEffect(() => {
+    const initializeSession = async () => {
+      try {
+        setLoading(true);
+        
+        // First, try to get existing session from localStorage
+        const existingSessionId = localStorage.getItem('sessionId');
+        console.log('[ResumeViewer] Existing session from localStorage:', existingSessionId);
+        
+        if (existingSessionId) {
+          // Test if existing session has resumes
+          console.log('[ResumeViewer] Testing existing session for resumes...');
+          const testResponse = await fetch(`${API_BASE_URL}/resumes?sessionId=${existingSessionId}`, {
+            headers: { 'X-Session-ID': existingSessionId }
+          });
+          const testData = await testResponse.json();
+          
+          if (testData.success && testData.resumes.length > 0) {
+            console.log('[ResumeViewer] Existing session has resumes, using it');
+            setSessionId(existingSessionId);
+            setResumes(testData.resumes);
+            await loadStats(existingSessionId);
+            setLoading(false);
+            return;
+          } else {
+            console.log('[ResumeViewer] Existing session has no resumes, will create new');
+          }
+        }
+        
+        // Create new session
+        console.log('[ResumeViewer] Creating new session...');
+        const response = await fetch(`${API_BASE_URL}/session/init`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+          const newSessionId = data.sessionId;
+          console.log('[ResumeViewer] New session created:', newSessionId);
+          setSessionId(newSessionId);
+          localStorage.setItem('sessionId', newSessionId);
+          
+          // Load resumes for new session (will be empty initially)
+          await loadResumes(newSessionId);
+          await loadStats(newSessionId);
+        } else {
+          setError('Failed to initialize session');
+        }
+      } catch (error) {
+        console.error('[ResumeViewer] Session initialization error:', error);
+        setError('Backend server is not running. Please start the server and try again.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
     initializeSession();
   }, []);
 
-  // Load resumes when session is available
-  useEffect(() => {
-    if (sessionId) {
-      loadResumes();
-      loadStats();
-    }
-  }, [sessionId]);
-
-  const initializeSession = async () => {
+  const loadResumes = async (sessionIdToUse = sessionId) => {
     try {
-      setLoading(true);
-      const response = await fetch(`${API_BASE_URL}/session/init`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+      console.log('[ResumeViewer] Loading resumes for sessionId:', sessionIdToUse);
+      const response = await fetch(`${API_BASE_URL}/resumes?sessionId=${sessionIdToUse}`, {
+        headers: { 'X-Session-ID': sessionIdToUse }
       });
 
       const data = await response.json();
-      
-      if (data.success) {
-        const newSessionId = data.sessionId;
-        setSessionId(newSessionId);
-        localStorage.setItem('sessionId', newSessionId);
-        console.log('Session initialized:', newSessionId);
-      } else {
-        setError('Failed to initialize session');
-      }
-    } catch (error) {
-      console.error('Session initialization error:', error);
-      setError('Backend server is not running. Please start the server and try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadResumes = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch(`${API_BASE_URL}/resumes?sessionId=${sessionId}`, {
-        headers: {
-          'X-Session-ID': sessionId,
-        },
-      });
-
-      const data = await response.json();
+      console.log('[ResumeViewer] API response:', data);
       
       if (data.success) {
         setResumes(data.resumes);
-        console.log('Resumes loaded:', data.resumes.length);
+        console.log('[ResumeViewer] Resumes loaded:', data.resumes.length);
       } else {
+        console.error('[ResumeViewer] Failed to load resumes:', data.message);
         setError('Failed to load resumes');
       }
     } catch (error) {
-      console.error('Load resumes error:', error);
+      console.error('[ResumeViewer] Load resumes error:', error);
       setError('Failed to load resumes');
-    } finally {
-      setLoading(false);
     }
   };
 
-  const loadStats = async () => {
+  const loadStats = async (sessionIdToUse = sessionId) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/resumes/stats?sessionId=${sessionId}`, {
-        headers: {
-          'X-Session-ID': sessionId,
-        },
+      const response = await fetch(`${API_BASE_URL}/resumes/stats?sessionId=${sessionIdToUse}`, {
+        headers: { 'X-Session-ID': sessionIdToUse }
       });
 
       const data = await response.json();
-      
       if (data.success) {
         setStats(data.stats);
       }
@@ -99,9 +114,7 @@ const ResumeViewer = () => {
   const downloadResume = async (resumeId) => {
     try {
       const response = await fetch(`${API_BASE_URL}/resumes/${resumeId}?sessionId=${sessionId}`, {
-        headers: {
-          'X-Session-ID': sessionId,
-        },
+        headers: { 'X-Session-ID': sessionId }
       });
 
       if (response.ok) {
@@ -131,9 +144,7 @@ const ResumeViewer = () => {
     try {
       const response = await fetch(`${API_BASE_URL}/resumes/${resumeId}?sessionId=${sessionId}`, {
         method: 'DELETE',
-        headers: {
-          'X-Session-ID': sessionId,
-        },
+        headers: { 'X-Session-ID': sessionId }
       });
 
       const data = await response.json();
@@ -161,7 +172,7 @@ const ResumeViewer = () => {
     });
   };
 
-  if (loading && resumes.length === 0) {
+  if (loading) {
     return (
       <div className="resume-viewer">
         <div className="loading">Loading your resumes...</div>
@@ -245,8 +256,14 @@ const ResumeViewer = () => {
       <div className="session-info">
         <small>Session ID: {sessionId.substring(0, 8)}...</small>
         <div className="session-actions">
-          <button onClick={loadResumes} className="btn-refresh">
+          <button onClick={() => loadResumes()} className="btn-refresh">
             🔄 Refresh
+          </button>
+          <button onClick={() => {
+            localStorage.removeItem('sessionId');
+            window.location.reload();
+          }} className="btn-clear">
+            🗑️ Clear Session
           </button>
           <button onClick={() => navigate('/')} className="btn-back">
             🏠 Home

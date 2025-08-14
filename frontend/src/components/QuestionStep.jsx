@@ -136,18 +136,24 @@ const QuestionStep = ({ question, onAnswer, showConfirm, pendingAnswer, extracte
   const [showTextInput, setShowTextInput] = useState(false);
   const [confirmationPlayed, setConfirmationPlayed] = useState(false);
   const [errorPlayed, setErrorPlayed] = useState(false);
+  const [lastProcessedResult, setLastProcessedResult] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const { startListening, listening, stopListening, resetTranscript } = useSpeech({
     onResult: async (result) => {
+      if (isProcessing || result === lastProcessedResult) return;
       console.log(`[QuestionStep] Speech recognition result: "${result}"`);
+      setLastProcessedResult(result);
+      setIsProcessing(true);
       setInput(result);
       setValidating(true);
       setError('');
-
+      
       if (!result || result.trim() === '') {
         console.log('[QuestionStep] Empty speech result, showing error without validation');
-        setError('کوئی جواب نہیں ملا، دوبارہ کوشش کریں');
+        setError('کوئی جواب نہیں ملا');
         setValidating(false);
+        setIsProcessing(false);
         return;
       }
 
@@ -177,16 +183,18 @@ const QuestionStep = ({ question, onAnswer, showConfirm, pendingAnswer, extracte
           setError('');
           setTimeout(() => onAnswer(result, extracted), 300);
         } else {
-          setError(validationResult.message || 'جواب درست نہیں ہے، دوبارہ کوشش کریں');
-          // Don't call onAnswer for errors - just show error popup
+          if(error==''){
+            setError(validationResult.message || 'جواب درست نہیں ہے');
+          }
         }
       } catch (e) {
         console.error('[QuestionStep] Validation error:', e);
-        setError('سرور سے جواب نہیں آیا یا مسئلہ ہوا ہے، دوبارہ کوشش کریں');
+        setError('سرور سے جواب نہیں آیا');
         setLocalExtractedInfo(result);
         setTimeout(() => onAnswer(result, result), 300);
       } finally {
         setValidating(false);
+        setIsProcessing(false);
       }
     }
   });
@@ -222,10 +230,9 @@ const QuestionStep = ({ question, onAnswer, showConfirm, pendingAnswer, extracte
     }
   };
 
-  // Generate custom error message with button instruction
-  const generateErrorMessage = (errorText, userAnswer) => {
-    const baseInstruction = 'دوبارہ کوشش کرنے کے لیے دوبارہ کوشش کریں والا بٹن دبائیں';
-    return `${errorText} آپ کا جواب: ${userAnswer}۔ ${baseInstruction}`;
+  // Use only the exact message from Gemini
+  const generateErrorMessage = (errorText) => {
+    return errorText;
   };
 
   // Play question once when step changes - FIXED to avoid infinite loop
@@ -240,6 +247,7 @@ const QuestionStep = ({ question, onAnswer, showConfirm, pendingAnswer, extracte
     setTextInput('');
     setConfirmationPlayed(false);
     setErrorPlayed(false);
+    
     
     // Reset the transcript for the new question
     resetTranscript();
@@ -256,7 +264,7 @@ const QuestionStep = ({ question, onAnswer, showConfirm, pendingAnswer, extracte
     return () => {
       clearTimeout(t);
     };
-  }, [currentStep, isStarted, question]); // Removed 'speak' to prevent infinite loop
+  }, [currentStep, isStarted, question]); 
 
   // Enable mic and auto-start listening after TTS done and not validating
   useEffect(() => {
@@ -319,14 +327,13 @@ const QuestionStep = ({ question, onAnswer, showConfirm, pendingAnswer, extracte
       error,
       validating,
       showConfirm,
-      errorPlayed,
-      pendingAnswer
+      errorPlayed
     });
 
     if (error && !validating && !showConfirm && !errorPlayed) {
       console.log('[QuestionStep] Conditions met, preparing to play error message');
       
-      const errorMessage = generateErrorMessage(error, pendingAnswer);
+      const errorMessage = generateErrorMessage(error);
       console.log('[QuestionStep] Playing error message:', errorMessage);
       
       // Mark as played to prevent repetition
@@ -338,7 +345,7 @@ const QuestionStep = ({ question, onAnswer, showConfirm, pendingAnswer, extracte
     } else if (error) {
       console.log('[QuestionStep] Conditions not met for playing error message');
     }
-  }, [error, validating, showConfirm, errorPlayed, pendingAnswer, speak]);
+  }, [error, validating, showConfirm, errorPlayed, speak]);
 
   const handleMicClick = () => {
     if (!micEnabled || listening) return;
@@ -354,9 +361,10 @@ const QuestionStep = ({ question, onAnswer, showConfirm, pendingAnswer, extracte
   };
 
   const handleTextInputSubmit = async (e) => {
+
     e.preventDefault();
     if (!textInput.trim()) {
-      setError('براہ کرم فون نمبر درج کریں');
+      setError('فون نمبر درج کریں');
       return;
     }
 
@@ -380,11 +388,11 @@ const QuestionStep = ({ question, onAnswer, showConfirm, pendingAnswer, extracte
         setLocalExtractedInfo(extracted);
         setTimeout(() => onAnswer(textInput, extracted), 300);
       } else {
-        setError(validationResult.message || 'فون نمبر درست نہیں ہے، دوبارہ کوشش کریں');
+        setError(validationResult.message || 'فون نمبر درست نہیں ہے');
       }
     } catch (e) {
       console.error('[QuestionStep] Text input validation error:', e);
-      setError('سرور سے جواب نہیں آیا یا مسئلہ ہوا ہے، دوبارہ کوشش کریں');
+      setError('سرور سے جواب نہیں آیا');
       setLocalExtractedInfo(textInput);
       setTimeout(() => onAnswer(textInput, textInput), 300);
     } finally {
@@ -722,7 +730,7 @@ const QuestionStep = ({ question, onAnswer, showConfirm, pendingAnswer, extracte
             <div className="error-display">
               <div className="error-icon">⚠️</div>
               <div className="error-message">
-                {generateErrorMessage(error, pendingAnswer)}
+                {generateErrorMessage(error)}
               </div>
             </div>
           ) : (
@@ -753,7 +761,7 @@ const QuestionStep = ({ question, onAnswer, showConfirm, pendingAnswer, extracte
               }} className="retry-button">
                 🔄 دوبارہ کوشش کریں
               </button>
-            ) : (
+            ) : ( 
               <>
                 <button onClick={() => onConfirm(true)} className="confirm-yes">
                   ✅ ہاں
